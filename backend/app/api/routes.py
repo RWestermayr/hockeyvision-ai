@@ -1,12 +1,11 @@
-from pathlib import Path
-import shutil
+from fastapi import APIRouter, File, UploadFile
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from app.schemas.upload import UploadResponse
+from app.services.upload_service import UploadService
 
 router = APIRouter()
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+upload_service = UploadService()
 
 
 @router.get("/")
@@ -19,25 +18,6 @@ def health():
     return {"status": "healthy"}
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=UploadResponse)
 async def upload_video(file: UploadFile = File(...)):
-    allowed_extensions = {".mp4", ".mov", ".avi", ".mkv"}
-
-    extension = Path(file.filename).suffix.lower()
-
-    if extension not in allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type."
-        )
-
-    destination = UPLOAD_DIR / file.filename
-
-    with destination.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return {
-        "filename": file.filename,
-        "content_type": file.content_type,
-        "saved_to": str(destination),
-    }
+    return upload_service.save_video(file)
