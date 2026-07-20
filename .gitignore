@@ -43,3 +43,7 @@ htmlcov/
 # Temporary files
 *.tmp
 *.swp
+
+# Python tooling
+.mypy_cache/
+.ruff_cache/
