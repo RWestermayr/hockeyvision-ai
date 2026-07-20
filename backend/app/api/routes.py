@@ -1,10 +1,16 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.core.config import settings
+from app.models.analytics import AnalyticsResult
+from app.models.detection import DetectionResult
+from app.models.tracking import TrackHistory
+from app.services.analytics_service import AnalyticsService
+from app.services.detection_service import DetectionService
 from app.services.frame_service import FrameService
 from app.services.image_service import ImageService
 from app.services.job_service import JobService
 from app.services.pipeline_service import PipelineService
+from app.services.player_service import PlayerService
 from app.services.tracking_service import TrackingService
 from app.services.upload_service import UploadService
 from app.services.yolo_service import YOLOService
@@ -24,11 +30,21 @@ pipeline_service = PipelineService(
 image_service = ImageService()
 yolo_service = YOLOService()
 
+detection_service = DetectionService(
+    frame_service=frame_service,
+    image_service=image_service,
+    yolo_service=yolo_service,
+)
+
 tracking_service = TrackingService(
     frame_service=frame_service,
     image_service=image_service,
     yolo_service=yolo_service,
 )
+
+player_service = PlayerService()
+
+analytics_service = AnalyticsService()
 
 
 @router.get("/")
@@ -77,27 +93,26 @@ def list_frames(video_id: str):
     }
 
 
-@router.get("/videos/{video_id}/frames/{frame_name}/detect")
-def detect_frame(video_id: str, frame_name: str):
+@router.get(
+    "/videos/{video_id}/frames/{frame_name}/detect",
+    response_model=DetectionResult,
+)
+def detect_frame(
+    video_id: str,
+    frame_name: str,
+) -> DetectionResult:
 
-    frame_path = frame_service.get_frame(video_id, frame_name)
+    try:
+        return detection_service.detect_frame(
+            video_id=video_id,
+            frame_name=frame_name,
+        )
 
-    if frame_path is None:
+    except FileNotFoundError:
         raise HTTPException(
             status_code=404,
             detail="Frame not found.",
         )
-
-    image = image_service.load_image(frame_path)
-
-    detections = yolo_service.detect_people(image)
-
-    return {
-        "video_id": video_id,
-        "frame": frame_name,
-        "count": len(detections),
-        "detections": detections,
-    }
 
 
 @router.get("/videos/{video_id}/frames/{frame_name}/track")
@@ -179,22 +194,42 @@ def track_image(video_id: str, frame_name: str):
     }
 
 
-@router.get("/videos/{video_id}/tracks")
+@router.get(
+    "/videos/{video_id}/tracks",
+    response_model=TrackHistory,
+)
 def track_video(
     video_id: str,
     start_frame: int = 0,
     max_frames: int = 100,
-):
+) -> TrackHistory:
+
+    return tracking_service.track_video(
+        video_id=video_id,
+        start_frame=start_frame,
+        max_frames=max_frames,
+    )
+
+
+@router.get(
+    "/videos/{video_id}/analytics",
+    response_model=AnalyticsResult,
+)
+def analytics(
+    video_id: str,
+    start_frame: int = 0,
+    max_frames: int = 100,
+) -> AnalyticsResult:
+
     history = tracking_service.track_video(
         video_id=video_id,
         start_frame=start_frame,
         max_frames=max_frames,
     )
 
-    return {
-        "video_id": video_id,
-        "start_frame": start_frame,
-        "processed_frames": max_frames,
-        "track_count": len(history),
-        "tracks": history,
-    }
+    players = player_service.create_players(history)
+
+    return analytics_service.analyze_players(
+        players=players,
+        video_id=video_id,
+    )

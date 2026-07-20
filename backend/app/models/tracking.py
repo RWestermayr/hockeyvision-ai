@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BoundingBox(BaseModel):
@@ -15,7 +15,7 @@ class TrackPoint(BaseModel):
     center_x: int
     center_y: int
 
-    confidence: float
+    confidence: float = Field(..., ge=0.0, le=1.0)
 
     bbox: BoundingBox
 
@@ -23,7 +23,7 @@ class TrackPoint(BaseModel):
 class Track(BaseModel):
     track_id: int
 
-    history: list[TrackPoint]
+    history: list[TrackPoint] = Field(default_factory=list)
 
 
 class TrackHistory(BaseModel):
@@ -35,4 +35,4 @@ class TrackHistory(BaseModel):
 
     track_count: int
 
-    tracks: list[Track]
+    tracks: list[Track] = Field(default_factory=list)
