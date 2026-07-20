@@ -3,6 +3,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.core.config import settings
 from app.models.analytics import AnalyticsResult
 from app.models.detection import DetectionResult
+from app.models.rink import RinkGeometry
 from app.models.tracking import TrackHistory
 from app.services.analytics_service import AnalyticsService
 from app.services.detection_service import DetectionService
@@ -11,6 +12,7 @@ from app.services.image_service import ImageService
 from app.services.job_service import JobService
 from app.services.pipeline_service import PipelineService
 from app.services.player_service import PlayerService
+from app.services.rink_service import RinkService
 from app.services.tracking_service import TrackingService
 from app.services.upload_service import UploadService
 from app.services.yolo_service import YOLOService
@@ -45,6 +47,8 @@ tracking_service = TrackingService(
 player_service = PlayerService()
 
 analytics_service = AnalyticsService()
+
+rink_service = RinkService()
 
 
 @router.get("/")
@@ -138,6 +142,74 @@ def track_frame(video_id: str, frame_name: str):
     }
 
 
+@router.get(
+    "/videos/{video_id}/frames/{frame_name}/rink",
+    response_model=RinkGeometry,
+)
+def detect_rink(
+    video_id: str,
+    frame_name: str,
+) -> RinkGeometry:
+
+    frame_path = frame_service.get_frame(
+        video_id,
+        frame_name,
+    )
+
+    if frame_path is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Frame not found.",
+        )
+
+    image = image_service.load_image(frame_path)
+
+    return rink_service.detect_geometry(image)
+
+
+@router.get("/videos/{video_id}/frames/{frame_name}/rink-image")
+def rink_image(
+    video_id: str,
+    frame_name: str,
+):
+
+    frame_path = frame_service.get_frame(
+        video_id,
+        frame_name,
+    )
+
+    if frame_path is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Frame not found.",
+        )
+
+    image = image_service.load_image(frame_path)
+
+    geometry = rink_service.detect_geometry(image)
+
+    annotated = rink_service.draw_geometry(
+        image,
+        geometry,
+    )
+
+    output_path = (
+        settings.output_path
+        / f"{video_id}_rink_{frame_name}"
+    )
+
+    image_service.save_image(
+        annotated,
+        output_path,
+    )
+
+    return {
+        "message": "Rink debug image created.",
+        "line_count": len(geometry.lines),
+        "saved_to": str(output_path),
+    }
+
+
 @router.get("/videos/{video_id}/frames/{frame_name}/image")
 def detect_image(video_id: str, frame_name: str):
 
@@ -156,8 +228,8 @@ def detect_image(video_id: str, frame_name: str):
     output_path = settings.output_path / f"{video_id}_{frame_name}"
 
     image_service.save_image(
-        output_path,
         annotated,
+        output_path,
     )
 
     return {
@@ -184,8 +256,8 @@ def track_image(video_id: str, frame_name: str):
     output_path = settings.output_path / f"{video_id}_tracked_{frame_name}"
 
     image_service.save_image(
-        output_path,
         annotated,
+        output_path,
     )
 
     return {
