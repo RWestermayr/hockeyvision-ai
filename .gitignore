@@ -47,3 +47,6 @@ htmlcov/
 # Python tooling
 .mypy_cache/
 .ruff_cache/
+
+# Uploads
+uploads/
