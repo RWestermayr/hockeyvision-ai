@@ -48,5 +48,16 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Uploads
-uploads/
+# Runtime data
+data/uploads/*
+data/frames/*
+data/thumbnails/*
+data/tracking/*
+data/reports/*
+
+# Keep folder structure
+!data/uploads/.gitkeep
+!data/frames/.gitkeep
+!data/thumbnails/.gitkeep
+!data/tracking/.gitkeep
+!data/reports/.gitkeep
