@@ -14,21 +14,33 @@ class UploadService:
     def __init__(self):
         self.upload_dir = settings.upload_path
         self.upload_dir.mkdir(parents=True, exist_ok=True)
+
         self.video_service = VideoService()
 
     def save_video(self, file: UploadFile) -> dict:
-        allowed_extensions = {".mp4", ".mov", ".avi", ".mkv"}
+        if not file.filename:
+            raise HTTPException(
+                status_code=400,
+                detail="No filename provided.",
+            )
 
         extension = Path(file.filename).suffix.lower()
+
+        allowed_extensions = {
+            ".mp4",
+            ".mov",
+            ".avi",
+            ".mkv",
+        }
 
         if extension not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail="Unsupported file type.",
+                detail=f"Unsupported file type: {extension}",
             )
 
-        file_id = uuid.uuid4()
-        stored_filename = f"{file_id}{extension}"
+        video_id = str(uuid.uuid4())
+        stored_filename = f"{video_id}{extension}"
 
         destination = self.upload_dir / stored_filename
 
@@ -38,10 +50,7 @@ class UploadService:
         video_info = self.video_service.get_video_info(destination)
 
         return {
-            "id": str(file_id),
-            "original_filename": file.filename,
-            "stored_filename": stored_filename,
-            "content_type": file.content_type,
-            "saved_to": str(destination),
+            "video_id": video_id,
+            "video_path": destination,
             "video": video_info,
         }

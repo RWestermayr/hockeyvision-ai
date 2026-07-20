@@ -12,9 +12,6 @@ class VideoInfo(BaseModel):
 
 
 class UploadResponse(BaseModel):
-    id: str
-    original_filename: str
-    stored_filename: str
-    content_type: str
-    saved_to: str
+    video_id: str
+    status: str
     video: VideoInfo
